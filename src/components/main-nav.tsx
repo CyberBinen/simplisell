@@ -9,6 +9,7 @@ import {
   BarChart,
   Settings,
   Briefcase,
+  ShoppingBag,
 
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ import { Icons } from "@/components/icons";
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
+  { href: "/shop", label: "Shop", icon: ShoppingBag },
   { href: "/finance", label: "Finance", icon: Wallet },
   { href: "/analytics", label: "Analytics", icon: BarChart },
   { href: "/notifications", label: "Notifications", icon: Bell },
