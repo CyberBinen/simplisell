@@ -23,8 +23,7 @@ export default function PortfolioPage() {
   return (
     <div className="flex flex-col gap-12">
       {/* Profile Section */}
-      <Card>
-        <CardContent className="p-6">
+      <section className="bg-card border rounded-lg p-6">
           <div className="flex flex-col md:flex-row gap-8">
             <div className="flex flex-col items-center md:items-start md:w-1/3 lg:w-1/4 space-y-4">
               <Avatar className="w-32 h-32 border-4 border-primary">
@@ -84,8 +83,7 @@ export default function PortfolioPage() {
                 </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </section>
 
       {/* My Work Section */}
       <section>
