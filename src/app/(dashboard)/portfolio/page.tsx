@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { PlusCircle, Mail, Phone, Twitter, Instagram, Linkedin, Briefcase } from "lucide-react";
+import { PlusCircle, Mail, Phone, Twitter, Instagram, Linkedin, Briefcase, MessageSquare } from "lucide-react";
 
 const portfolioItems = [
   { id: 1, title: "Wedding Photography", imageUrl: "https://placehold.co/600x400.png", hint: "wedding photography" },
@@ -12,6 +12,12 @@ const portfolioItems = [
   { id: 3, title: "Landscape Art", imageUrl: "https://placehold.co/600x400.png", hint: "landscape art" },
   { id: 4, title: "Portrait Session", imageUrl: "https://placehold.co/600x400.png", hint: "portrait photography" },
 ];
+
+const testimonials = [
+    { id: 1, name: "Jane Doe", company: "Acme Inc.", quote: "The quality of work is simply outstanding. The attention to detail and creative flair brought our vision to life beyond our expectations. A true professional and a pleasure to work with." },
+    { id: 2, name: "John Smith", company: "Monsters Inc.", quote: "Incredibly talented and reliable. They delivered on time and the final product was exceptional. I would highly recommend their services to anyone looking for top-tier creative work." },
+    { id: 3, name: "Sarah Lee", company: "Stark Industries", quote: "Working with them was a seamless experience from start to finish. Their communication was clear, their ideas were innovative, and the results were stunning. We'll definitely be back for more." },
+]
 
 export default function PortfolioPage() {
   return (
@@ -113,6 +119,29 @@ export default function PortfolioPage() {
               </Card>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+            <div className="flex items-center gap-2">
+                <MessageSquare className="h-6 w-6" />
+                <CardTitle className="font-headline">What My Clients Say</CardTitle>
+            </div>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {testimonials.map((testimonial) => (
+                <Card key={testimonial.id}>
+                    <CardContent className="p-6">
+                        <blockquote className="border-l-2 pl-4 italic text-muted-foreground">
+                            {testimonial.quote}
+                        </blockquote>
+                        <p className="mt-4 text-right font-semibold">
+                            &mdash; {testimonial.name}, <span className="text-muted-foreground font-normal">{testimonial.company}</span>
+                        </p>
+                    </CardContent>
+                </Card>
+            ))}
         </CardContent>
       </Card>
     </div>
