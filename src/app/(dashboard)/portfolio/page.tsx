@@ -21,12 +21,12 @@ const testimonials = [
 
 export default function PortfolioPage() {
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-12">
+      {/* Profile Section */}
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-8">
-            {/* Left Column: Avatar, Name, Socials, Contact */}
-            <div className="flex flex-col items-center md:items-start md:w-1/3 space-y-4">
+            <div className="flex flex-col items-center md:items-start md:w-1/3 lg:w-1/4 space-y-4">
               <Avatar className="w-32 h-32 border-4 border-primary">
                 <AvatarImage src="https://placehold.co/128x128.png" alt="User" data-ai-hint="user avatar" />
                 <AvatarFallback>U</AvatarFallback>
@@ -35,7 +35,7 @@ export default function PortfolioPage() {
                 <h1 className="text-3xl font-bold font-headline">Your Name</h1>
                 <p className="text-muted-foreground text-lg">Creative Professional</p>
               </div>
-              <div className="flex gap-4">
+              <div className="flex gap-2">
                 <Button variant="ghost" size="icon" asChild>
                   <Link href="#" className="text-muted-foreground hover:text-primary">
                     <Twitter className="h-5 w-5" />
@@ -54,7 +54,7 @@ export default function PortfolioPage() {
               </div>
               <Separator className="w-full" />
               <div className="w-full space-y-2 text-sm">
-                <h3 className="text-lg font-semibold">Contact Me</h3>
+                <h3 className="font-semibold text-base">Contact Me</h3>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Mail className="h-4 w-4" />
                   <span>your.email@example.com</span>
@@ -66,8 +66,7 @@ export default function PortfolioPage() {
               </div>
             </div>
 
-            {/* Right Column: About, Services */}
-            <div className="md:w-2/3 space-y-6">
+            <div className="md:w-2/3 lg:w-3/4 space-y-6">
                 <div>
                     <h2 className="text-2xl font-bold font-headline mb-2">About Me</h2>
                     <p className="text-muted-foreground leading-relaxed">
@@ -88,18 +87,18 @@ export default function PortfolioPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-                <Briefcase className="h-6 w-6" />
-                <CardTitle className="font-headline">My Work</CardTitle>
+      {/* My Work Section */}
+      <section>
+        <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+                <Briefcase className="h-7 w-7 text-primary" />
+                <h2 className="text-3xl font-bold font-headline">My Work</h2>
             </div>
           <Button variant="outline">
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Work
           </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        </div>
+        <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {portfolioItems.map((item) => (
               <Card key={item.id} className="overflow-hidden group">
                 <CardContent className="p-0 relative">
@@ -118,18 +117,16 @@ export default function PortfolioPage() {
                 </CardFooter>
               </Card>
             ))}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-            <div className="flex items-center gap-2">
-                <MessageSquare className="h-6 w-6" />
-                <CardTitle className="font-headline">What My Clients Say</CardTitle>
-            </div>
-        </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {/* Testimonials Section */}
+      <section>
+        <div className="flex items-center gap-3 mb-6">
+            <MessageSquare className="h-7 w-7 text-primary" />
+            <h2 className="text-3xl font-bold font-headline">What My Clients Say</h2>
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {testimonials.map((testimonial) => (
                 <Card key={testimonial.id}>
                     <CardContent className="p-6">
@@ -142,8 +139,8 @@ export default function PortfolioPage() {
                     </CardContent>
                 </Card>
             ))}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }
