@@ -68,6 +68,22 @@ export default function Dashboard() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Recent Notifications</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-2">
+            <p className="font-medium">New customer signed up</p>
+            <p className="text-sm text-muted-foreground">5 minutes ago</p>
+          </div>
+          <div>
+            <p className="font-medium">New order received</p>
+            <p className="text-sm text-muted-foreground">10 minutes ago</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
           <CardDescription>You made 265 sales this month.</CardDescription>
         </CardHeader>
