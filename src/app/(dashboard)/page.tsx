@@ -1,3 +1,7 @@
+
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -13,9 +17,37 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatDistanceToNow } from "date-fns"
 import { CreditCard, DollarSign, Users } from "lucide-react"
+import { collection, getFirestore, limit, onSnapshot, orderBy, query } from "firebase/firestore"
+import { app } from "@/lib/firebase";
 
 export default function Dashboard() {
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  useEffect(() => {
+    const db = getFirestore(app);
+    // Replace 'placeholder_user_id' with the actual authenticated user's ID
+    const userId = 'placeholder_user_id';
+    const notificationsQuery = query(
+      collection(db, 'notifications'),
+      // where('userId', '==', userId), // This will be needed when you have user auth
+      orderBy('timestamp', 'desc'),
+      limit(5)
+    );
+
+    const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
+      const notificationsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(notificationsData);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex-1 space-y-4">
@@ -71,16 +103,21 @@ export default function Dashboard() {
           <CardTitle>Recent Notifications</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-2">
-            <p className="font-medium">New customer signed up</p>
-            <p className="text-sm text-muted-foreground">5 minutes ago</p>
-          </div>
-          <div>
-            <p className="font-medium">New order received</p>
-            <p className="text-sm text-muted-foreground">10 minutes ago</p>
-          </div>
+          {notifications.length > 0 ? (
+            notifications.map((notification) => (
+              <div key={notification.id} className="mb-2 last:mb-0">
+                <p className="font-medium">{notification.message}</p>
+                <p className="text-sm text-muted-foreground">
+                  {notification.timestamp && formatDistanceToNow(notification.timestamp.toDate(), { addSuffix: true })}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-muted-foreground">No recent notifications.</p>
+          )}
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader>
