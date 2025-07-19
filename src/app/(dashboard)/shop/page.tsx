@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -236,7 +236,7 @@ function ProductForm({
               </div>
             </form>
         </div>
-        <DialogFooter className="p-6 border-t bg-background">
+        <DialogFooter className="p-6 border-t bg-background sticky bottom-0">
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancel</Button>
             </DialogClose>
@@ -258,10 +258,38 @@ function ProductDetailView({
     onSave: (product: Product) => void;
     onDelete: (productId: string) => void;
 }) {
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const handleAddMedia = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        const newMediaItem: MediaItem = {
+          type: file.type.startsWith('video') ? 'video' : 'image',
+          url: dataUrl
+        };
+        const currentMedia = product.media || [];
+        const updatedProduct = {
+          ...product,
+          media: [...currentMedia, newMediaItem],
+        };
+        onSave(updatedProduct);
+        toast({ title: "Success", description: "Media added successfully." });
+      };
+      reader.onerror = () => {
+        toast({ title: "Error", description: "Failed to read file.", variant: "destructive" });
+      }
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="text-2xl font-bold font-headline">{product.name}</DialogTitle>
            <DialogClose asChild>
              <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
@@ -270,7 +298,7 @@ function ProductDetailView({
             </button>
           </DialogClose>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto pr-6 -mr-6 pl-1 -ml-1 space-y-8">
+        <div className="flex-grow overflow-y-auto p-6 space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
                 {/* Media Column */}
                 <div className="space-y-4">
@@ -338,13 +366,27 @@ function ProductDetailView({
                 </div>
             </div>
 
-            {(product.media && product.media.length > 0) && (
-                 <Card>
-                    <CardHeader>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
                         <CardTitle className="font-headline text-xl">Additional Media</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-wrap gap-4">
-                        {product.media.map((item, index) => (
+                        <CardDescription>More images and videos of your product.</CardDescription>
+                    </div>
+                    <Input 
+                        id="add-media" 
+                        type="file" 
+                        accept="image/*,video/*"
+                        className="hidden" 
+                        ref={mediaInputRef}
+                        onChange={handleAddMedia}
+                    />
+                    <Button variant="outline" onClick={() => mediaInputRef.current?.click()}>
+                        <ImagePlus className="mr-2 h-4 w-4" /> Add Media
+                    </Button>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-4">
+                    {(product.media && product.media.length > 0) ? (
+                        product.media.map((item, index) => (
                             <div key={index} className="w-40 h-40 relative rounded-lg overflow-hidden">
                                 {item.type === 'image' ? (
                                     <Image
@@ -361,10 +403,12 @@ function ProductDetailView({
                                     />
                                 )}
                             </div>
-                        ))}
-                    </CardContent>
-                 </Card>
-            )}
+                        ))
+                    ) : (
+                        <p className="text-muted-foreground text-sm">No additional media has been added yet.</p>
+                    )}
+                </CardContent>
+            </Card>
         </div>
       </DialogContent>
     </Dialog>
@@ -391,10 +435,18 @@ export default function ShopPage() {
       });
       setProducts(productsData);
       setIsLoaded(true);
+    }, (error) => {
+        console.error("Firestore snapshot error:", error);
+        toast({
+            title: "Error loading products",
+            description: "Could not fetch products from the database. Please check your connection and permissions.",
+            variant: "destructive",
+        });
+        setIsLoaded(true); // Set to true to stop showing loader on error
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [toast]);
 
   const handleAddProduct = async (data: Product) => {
     try {
@@ -421,7 +473,8 @@ export default function ShopPage() {
         const productRef = doc(db, "products", id);
         await updateDoc(productRef, productData);
         toast({ title: "Success", description: "Product updated successfully." });
-        setSelectedProduct(data); // Update the selected product view as well
+        // The real-time listener will update the state, but we can update the selected product view instantly.
+        setSelectedProduct(data);
     } catch (error) {
         console.error("Error updating product:", error);
         toast({ title: "Error", description: "Failed to update product.", variant: "destructive" });
@@ -503,3 +556,4 @@ export default function ShopPage() {
     </div>
   );
 }
+ 
