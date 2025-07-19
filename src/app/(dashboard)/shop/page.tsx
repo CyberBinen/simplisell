@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Pencil, Trash2, Upload, Video, X, ImagePlus, ShoppingBag } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, Upload, Video, X, ImagePlus, ShoppingBag, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { db } from "@/lib/firebase";
