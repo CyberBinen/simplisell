@@ -34,13 +34,15 @@ import { Label } from "@/components/ui/label";
 import { PlusCircle, Pencil, Trash2, Upload, Video, X, ImagePlus, ShoppingBag, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
+import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { useToast } from "@/components/ui/use-toast";
 
 const mediaSchema = z.object({
   type: z.enum(['image', 'video']),
   url: z.string(),
+  storagePath: z.string(),
 });
 
 const productSchema = z.object({
@@ -50,6 +52,7 @@ const productSchema = z.object({
   price: z.string().min(1, "Price is required."),
   inventory: z.coerce.number().min(0, "Inventory must be a positive number."),
   coverImageUrl: z.string().optional(),
+  coverImageStoragePath: z.string().optional(),
   media: z.array(mediaSchema).optional(),
   hint: z.string().optional(),
   createdAt: z.any().optional(),
@@ -57,6 +60,20 @@ const productSchema = z.object({
 
 type Product = z.infer<typeof productSchema>;
 type MediaItem = z.infer<typeof mediaSchema>;
+
+// Helper function to upload a file and get URL
+const uploadFile = async (productId: string, fileDataUrl: string, fileType: 'cover' | 'media'): Promise<{ url: string, storagePath: string }> => {
+    const fileId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const isVideo = fileDataUrl.startsWith('data:video');
+    const extension = isVideo ? 'mp4' : 'jpg';
+    const storagePath = `products/${productId}/${fileType}/${fileId}.${extension}`;
+    const storageRef = ref(storage, storagePath);
+
+    const uploadResult = await uploadString(storageRef, fileDataUrl, 'data_url');
+    const downloadURL = await getDownloadURL(uploadResult.ref);
+    
+    return { url: downloadURL, storagePath };
+};
 
 function ProductForm({
   product,
@@ -70,21 +87,26 @@ function ProductForm({
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Store previews separately from form data to avoid storing data URIs in the form state
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
-  const [mediaPreviews, setMediaPreviews] = useState<MediaItem[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<{type: 'image' | 'video', url: string}[]>([]);
+  
+  // Refs for file inputs and temporary storage for file data
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const coverFileRef = useRef<string | null>(null);
+  const mediaFilesRef = useRef<{type: 'image' | 'video', dataUrl: string}[]>([]);
 
-  const form = useForm<Product>({
+  const form = useForm<Omit<Product, 'media' | 'coverImageUrl'>>({
     resolver: zodResolver(productSchema),
     defaultValues: product || {
       name: "",
       description: "",
       price: "",
       inventory: 0,
-      coverImageUrl: "",
-      media: [],
-      hint: "",
     },
   });
 
@@ -95,16 +117,12 @@ function ProductForm({
       reader.onloadend = () => {
         const dataUrl = reader.result as string;
         if (fileType === 'cover') {
-          form.setValue("coverImageUrl", dataUrl);
+          coverFileRef.current = dataUrl;
           setCoverImagePreview(dataUrl);
         } else {
-            const newMediaItem: MediaItem = {
-                type: file.type.startsWith('video') ? 'video' : 'image',
-                url: dataUrl
-            };
-            const currentMedia = form.getValues('media') || [];
-            form.setValue('media', [...currentMedia, newMediaItem]);
-            setMediaPreviews(prev => [...prev, newMediaItem]);
+            const mediaType = file.type.startsWith('video') ? 'video' : 'image';
+            mediaFilesRef.current.push({ type: mediaType, dataUrl });
+            setMediaPreviews(prev => [...prev, { type: mediaType, url: dataUrl }]);
         }
       };
       reader.readAsDataURL(file);
@@ -112,41 +130,69 @@ function ProductForm({
   };
 
   const removeMediaItem = (index: number) => {
-    const currentMedia = form.getValues('media') || [];
-    const updatedMedia = currentMedia.filter((_, i) => i !== index);
-    form.setValue('media', updatedMedia);
-    setMediaPreviews(updatedMedia);
+    mediaFilesRef.current.splice(index, 1);
+    setMediaPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  const onSubmit = (data: Product) => {
-    onSave(data);
-    handleOpenChange(false);
+  const onSubmit = async (data: Omit<Product, 'media' | 'coverImageUrl'>) => {
+    setIsSaving(true);
+    let finalProductData: Product = { ...product, ...data, media: product?.media || [] };
+
+    try {
+        const productId = product?.id || doc(collection(db, "products")).id;
+        finalProductData.id = productId;
+
+        // Upload new cover image if it exists
+        if (coverFileRef.current) {
+            const { url, storagePath } = await uploadFile(productId, coverFileRef.current, 'cover');
+            finalProductData.coverImageUrl = url;
+            finalProductData.coverImageStoragePath = storagePath;
+        }
+
+        // Upload new media files
+        const newMediaUploads = await Promise.all(
+            mediaFilesRef.current.map(file => uploadFile(productId, file.dataUrl, 'media'))
+        );
+        
+        const newMediaItems = newMediaUploads.map((upload, index) => ({
+            type: mediaFilesRef.current[index].type,
+            url: upload.url,
+            storagePath: upload.storagePath,
+        }));
+        
+        finalProductData.media = [...(finalProductData.media || []), ...newMediaItems];
+
+        onSave(finalProductData);
+        handleOpenChange(false);
+    } catch (error) {
+        console.error("Error saving product:", error);
+        toast({ title: "Error", description: "Failed to save product. Check console for details.", variant: "destructive" });
+    } finally {
+        setIsSaving(false);
+    }
   };
   
   useEffect(() => {
     if (isOpen) {
-      const defaultValues = product || {
-        name: "",
-        description: "",
-        price: "",
-        inventory: 0,
-        coverImageUrl: "",
-        media: [],
-        hint: "",
-      };
+      const defaultValues = product || { name: "", description: "", price: "", inventory: 0 };
       form.reset(defaultValues);
-      setCoverImagePreview(defaultValues.coverImageUrl || null);
-      setMediaPreviews(defaultValues.media || []);
+      setCoverImagePreview(product?.coverImageUrl || null);
+      setMediaPreviews(product?.media || []);
+      // Clear file refs
+      coverFileRef.current = null;
+      mediaFilesRef.current = [];
     }
   }, [isOpen, product, form]);
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      if(onClose) onClose();
+      if (onClose) onClose();
       form.reset();
       setCoverImagePreview(null);
       setMediaPreviews([]);
+      coverFileRef.current = null;
+      mediaFilesRef.current = [];
     }
   };
 
@@ -238,9 +284,12 @@ function ProductForm({
         </div>
         <DialogFooter className="p-6 border-t bg-background sticky bottom-0">
             <DialogClose asChild>
-                <Button type="button" variant="secondary">Cancel</Button>
+                <Button type="button" variant="secondary" disabled={isSaving}>Cancel</Button>
             </DialogClose>
-            <Button type="submit" onClick={form.handleSubmit(onSubmit)}>Save changes</Button>
+            <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save changes
+            </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -256,35 +305,67 @@ function ProductDetailView({
     product: Product; 
     onClose: () => void; 
     onSave: (product: Product) => void;
-    onDelete: (productId: string) => void;
+    onDelete: (productId: string, product: Product) => void;
 }) {
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleAddMedia = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddMedia = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUrl = reader.result as string;
-        const newMediaItem: MediaItem = {
-          type: file.type.startsWith('video') ? 'video' : 'image',
-          url: dataUrl
+    if (file && product.id) {
+        setIsUploading(true);
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            try {
+                const dataUrl = reader.result as string;
+                const mediaType = file.type.startsWith('video') ? 'video' : 'image';
+                const { url, storagePath } = await uploadFile(product.id!, dataUrl, 'media');
+                
+                const newMediaItem: MediaItem = {
+                    type: mediaType,
+                    url: url,
+                    storagePath: storagePath
+                };
+
+                const currentMedia = product.media || [];
+                const updatedProduct = {
+                    ...product,
+                    media: [...currentMedia, newMediaItem],
+                };
+                onSave(updatedProduct);
+                toast({ title: "Success", description: "Media added successfully." });
+            } catch (error) {
+                console.error("Error adding media:", error)
+                toast({ title: "Error", description: "Failed to upload media.", variant: "destructive" });
+            } finally {
+                setIsUploading(false);
+            }
         };
-        const currentMedia = product.media || [];
-        const updatedProduct = {
-          ...product,
-          media: [...currentMedia, newMediaItem],
-        };
-        onSave(updatedProduct);
-        toast({ title: "Success", description: "Media added successfully." });
-      };
-      reader.onerror = () => {
-        toast({ title: "Error", description: "Failed to read file.", variant: "destructive" });
-      }
-      reader.readAsDataURL(file);
+        reader.readAsDataURL(file);
     }
   };
+  
+  const handleDeleteMedia = async (mediaItem: MediaItem, index: number) => {
+    if(!product.id) return;
+    try {
+        // Delete from storage
+        const storageRef = ref(storage, mediaItem.storagePath);
+        await deleteObject(storageRef);
+
+        // Delete from firestore
+        const updatedMedia = product.media?.filter((_, i) => i !== index);
+        const updatedProduct = { ...product, media: updatedMedia };
+        onSave(updatedProduct);
+
+        toast({ title: "Success", description: "Media deleted successfully." });
+
+    } catch (error) {
+        console.error("Error deleting media:", error);
+        toast({ title: "Error", description: "Failed to delete media.", variant: "destructive" });
+    }
+  };
+
 
   return (
     <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -353,12 +434,12 @@ function ProductDetailView({
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete this product from your shop.
+                                        This action cannot be undone. This will permanently delete this product and all its media.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => { if(product.id) onDelete(product.id); onClose(); }}>Continue</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => { if(product.id) onDelete(product.id, product); onClose(); }}>Continue</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
@@ -379,15 +460,17 @@ function ProductDetailView({
                         className="hidden" 
                         ref={mediaInputRef}
                         onChange={handleAddMedia}
+                        disabled={isUploading}
                     />
-                    <Button variant="outline" onClick={() => mediaInputRef.current?.click()}>
-                        <ImagePlus className="mr-2 h-4 w-4" /> Add Media
+                    <Button variant="outline" onClick={() => mediaInputRef.current?.click()} disabled={isUploading}>
+                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ImagePlus className="mr-2 h-4 w-4" />}
+                        Add Media
                     </Button>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-4">
                     {(product.media && product.media.length > 0) ? (
                         product.media.map((item, index) => (
-                            <div key={index} className="w-40 h-40 relative rounded-lg overflow-hidden">
+                            <div key={index} className="w-40 h-40 relative group rounded-lg overflow-hidden">
                                 {item.type === 'image' ? (
                                     <Image
                                         src={item.url}
@@ -402,6 +485,11 @@ function ProductDetailView({
                                         controls
                                     />
                                 )}
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <Button variant="destructive" size="icon" onClick={() => handleDeleteMedia(item, index)}>
+                                        <Trash2 className="h-4 w-4"/>
+                                    </Button>
+                                </div>
                             </div>
                         ))
                     ) : (
@@ -430,7 +518,7 @@ export default function ShopPage() {
         productsData.push({ 
             ...data, 
             id: doc.id,
-            media: data.media || [] // ensure media is always an array
+            media: data.media || []
         } as Product);
       });
       setProducts(productsData);
@@ -442,62 +530,55 @@ export default function ShopPage() {
             description: "Could not fetch products from the database. Please check your connection and permissions.",
             variant: "destructive",
         });
-        setIsLoaded(true); // Set to true to stop showing loader on error
+        setIsLoaded(true);
     });
 
     return () => unsubscribe();
   }, [toast]);
 
-  const handleAddProduct = async (data: Product) => {
+  const handleSaveProduct = async (data: Product) => {
+    const { id, ...productData } = data;
     try {
-      const { id, ...productData } = data;
-      // Sanitize media array to ensure it's just plain objects
-      const sanitizedMedia = (productData.media || []).map(item => ({ type: item.type, url: item.url }));
-      
-      const dataToSave = {
-        ...productData,
-        media: sanitizedMedia,
-        createdAt: Timestamp.now(),
-      };
-
-      await addDoc(collection(db, "products"), dataToSave);
-      toast({ title: "Success", description: "Product added successfully." });
+        if (id) {
+            // Editing existing product
+            const productRef = doc(db, "products", id);
+            await updateDoc(productRef, productData);
+            toast({ title: "Success", description: "Product updated successfully." });
+            if (selectedProduct?.id === id) {
+              setSelectedProduct({ ...selectedProduct, ...data });
+            }
+        } else {
+            // Adding new product
+            const dataToSave = {
+              ...productData,
+              createdAt: Timestamp.now(),
+            };
+            await addDoc(collection(db, "products"), dataToSave);
+            toast({ title: "Success", description: "Product added successfully." });
+        }
     } catch (error) {
-      console.error("Error adding product:", error);
-      toast({ title: "Error", description: "Failed to add product.", variant: "destructive" });
-    }
-  };
-  
-  const handleEditProduct = async (data: Product) => {
-    if (!data.id) {
-        toast({ title: "Error", description: "Product ID is missing.", variant: "destructive" });
-        return;
-    }
-    try {
-        const { id, createdAt, ...productData } = data;
-        const productRef = doc(db, "products", id);
-
-        // Sanitize media array to ensure it's just plain objects
-        const sanitizedMedia = (productData.media || []).map(item => ({ type: item.type, url: item.url }));
-        
-        const dataToSave = {
-            ...productData,
-            media: sanitizedMedia,
-        };
-
-        await updateDoc(productRef, dataToSave);
-        toast({ title: "Success", description: "Product updated successfully." });
-        
-        setSelectedProduct(data);
-    } catch (error) {
-        console.error("Error updating product:", error);
-        toast({ title: "Error", description: "Failed to update product.", variant: "destructive" });
+        console.error("Error saving product:", error);
+        toast({ title: "Error", description: `Failed to save product: ${error}`, variant: "destructive" });
     }
   };
 
-  const handleDeleteProduct = async (productId: string) => {
+  const handleDeleteProduct = async (productId: string, product: Product) => {
      try {
+        // Delete all media from storage
+        const mediaToDelete = [];
+        if (product.coverImageStoragePath) {
+            mediaToDelete.push(deleteObject(ref(storage, product.coverImageStoragePath)));
+        }
+        if (product.media) {
+            for (const mediaItem of product.media) {
+                mediaToDelete.push(deleteObject(ref(storage, mediaItem.storagePath)));
+            }
+        }
+        await Promise.all(mediaToDelete);
+
+        // Delete product document from firestore
         await deleteDoc(doc(db, "products", productId));
+        
         toast({ title: "Success", description: "Product deleted successfully." });
         setSelectedProduct(null);
      } catch (error) {
@@ -521,7 +602,7 @@ export default function ShopPage() {
           <h1 className="text-3xl font-bold tracking-tight font-headline">Shop</h1>
           <p className="text-muted-foreground">Manage and sell your products.</p>
         </div>
-        <ProductForm onSave={handleAddProduct}>
+        <ProductForm onSave={handleSaveProduct}>
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Product
           </Button>
@@ -563,12 +644,10 @@ export default function ShopPage() {
         <ProductDetailView 
             product={selectedProduct}
             onClose={() => setSelectedProduct(null)}
-            onSave={handleEditProduct}
+            onSave={handleSaveProduct}
             onDelete={handleDeleteProduct}
         />
       )}
     </div>
   );
 }
-
-    
