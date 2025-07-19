@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -136,85 +137,87 @@ function ProductForm({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{product ? "Edit Product" : "Add Product"}</DialogTitle>
           <DialogDescription>
             {product ? "Make changes to your product here." : "Add a new product to your shop."} Click save when you're done.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">Name</Label>
-            <Input id="name" {...form.register("name")} className="col-span-3" />
-            {form.formState.errors.name && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.name.message}</p>}
-          </div>
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="description" className="text-right pt-2">Description</Label>
-            <Textarea id="description" {...form.register("description")} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="price" className="text-right">Price</Label>
-            <Input id="price" {...form.register("price")} className="col-span-3" />
-             {form.formState.errors.price && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.price.message}</p>}
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="inventory" className="text-right">Inventory</Label>
-            <Input id="inventory" type="number" {...form.register("inventory")} className="col-span-3" />
-             {form.formState.errors.inventory && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.inventory.message}</p>}
-          </div>
-           <div className="grid grid-cols-4 items-start gap-4">
-            <Label className="text-right pt-2">Image</Label>
-            <div className="col-span-3">
-                 <Input 
-                    id="image" 
-                    type="file" 
-                    accept="image/*"
-                    className="hidden" 
-                    ref={imageInputRef}
-                    onChange={handleImageChange}
-                 />
-                <Button type="button" variant="outline" onClick={() => imageInputRef.current?.click()}>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload Image
-                </Button>
-                {imagePreview && (
-                    <div className="mt-2">
-                        <Image src={imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover aspect-square" />
-                    </div>
-                )}
-                 {form.formState.errors.imageUrl && <p className="text-red-500 text-xs mt-1">{form.formState.errors.imageUrl.message}</p>}
-             </div>
-          </div>
-           <div className="grid grid-cols-4 items-start gap-4">
-            <Label className="text-right pt-2">Video</Label>
-            <div className="col-span-3">
-                 <Input 
-                    id="video" 
-                    type="file" 
-                    accept="video/*"
-                    className="hidden" 
-                    ref={videoInputRef}
-                    onChange={handleVideoChange}
-                 />
-                <Button type="button" variant="outline" onClick={() => videoInputRef.current?.click()}>
-                    <Video className="mr-2 h-4 w-4" />
-                    Upload Video
-                </Button>
-                {videoPreview && (
-                    <div className="mt-2">
-                        <video src={videoPreview} width="200" className="rounded-md" controls />
-                    </div>
-                )}
-             </div>
-          </div>
-          <DialogFooter>
+        <div className="flex-grow overflow-y-auto -mr-6 pr-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">Name</Label>
+                <Input id="name" {...form.register("name")} className="col-span-3" />
+                {form.formState.errors.name && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.name.message}</p>}
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="description" className="text-right pt-2">Description</Label>
+                <Textarea id="description" {...form.register("description")} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="price" className="text-right">Price</Label>
+                <Input id="price" {...form.register("price")} className="col-span-3" />
+                 {form.formState.errors.price && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.price.message}</p>}
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="inventory" className="text-right">Inventory</Label>
+                <Input id="inventory" type="number" {...form.register("inventory")} className="col-span-3" />
+                 {form.formState.errors.inventory && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.inventory.message}</p>}
+              </div>
+               <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right pt-2">Image</Label>
+                <div className="col-span-3">
+                     <Input 
+                        id="image" 
+                        type="file" 
+                        accept="image/*"
+                        className="hidden" 
+                        ref={imageInputRef}
+                        onChange={handleImageChange}
+                     />
+                    <Button type="button" variant="outline" onClick={() => imageInputRef.current?.click()}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload Image
+                    </Button>
+                    {imagePreview && (
+                        <div className="mt-2">
+                            <Image src={imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover aspect-square" />
+                        </div>
+                    )}
+                     {form.formState.errors.imageUrl && <p className="text-red-500 text-xs mt-1">{form.formState.errors.imageUrl.message}</p>}
+                 </div>
+              </div>
+               <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right pt-2">Video</Label>
+                <div className="col-span-3">
+                     <Input 
+                        id="video" 
+                        type="file" 
+                        accept="video/*"
+                        className="hidden" 
+                        ref={videoInputRef}
+                        onChange={handleVideoChange}
+                     />
+                    <Button type="button" variant="outline" onClick={() => videoInputRef.current?.click()}>
+                        <Video className="mr-2 h-4 w-4" />
+                        Upload Video
+                    </Button>
+                    {videoPreview && (
+                        <div className="mt-2">
+                            <video src={videoPreview} width="200" className="rounded-md" controls />
+                        </div>
+                    )}
+                 </div>
+              </div>
+            </form>
+        </div>
+        <DialogFooter className="mt-auto pt-4 border-t border-border -ml-6 -mr-6 -mb-6 px-6 pb-6">
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancel</Button>
             </DialogClose>
-            <Button type="submit">Save changes</Button>
-          </DialogFooter>
-        </form>
+            <Button type="submit" onClick={form.handleSubmit(onSubmit)}>Save changes</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
