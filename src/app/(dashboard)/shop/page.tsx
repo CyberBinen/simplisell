@@ -2,8 +2,7 @@
 "use client";
 
 import Image from "next/image";
-import React, from "react";
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -249,7 +248,7 @@ function ProductDetailView({
         </DialogHeader>
         <div className="flex-grow grid md:grid-cols-2 gap-8 overflow-y-auto pr-6 -mr-6 pl-1 -ml-1">
           {/* Media Column */}
-          <div className="space-y-4 flex flex-col items-center">
+          <div className="space-y-4">
             {product.imageUrl && (
               <div className="aspect-video relative w-full">
                 <Image 
@@ -262,8 +261,8 @@ function ProductDetailView({
               </div>
             )}
             {product.videoUrl && (
-              <div className="relative w-full max-w-[280px] aspect-[9/16] mt-4 rounded-xl overflow-hidden border bg-black">
-                <video src={product.videoUrl} className="w-full h-full object-cover" controls loop autoPlay muted />
+              <div className="relative w-full aspect-video mt-4">
+                <video src={product.videoUrl} className="rounded-lg object-cover w-full h-full" controls loop autoPlay muted />
               </div>
             )}
             {!product.imageUrl && !product.videoUrl && (
