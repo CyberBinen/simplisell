@@ -2,7 +2,8 @@
 "use client";
 
 import Image from "next/image";
-import React, { useState, useEffect, useRef } from "react";
+import React, from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -248,9 +249,9 @@ function ProductDetailView({
         </DialogHeader>
         <div className="flex-grow grid md:grid-cols-2 gap-8 overflow-y-auto pr-6 -mr-6 pl-1 -ml-1">
           {/* Media Column */}
-          <div className="space-y-4">
+          <div className="space-y-4 flex flex-col items-center">
             {product.imageUrl && (
-              <div className="aspect-video relative">
+              <div className="aspect-video relative w-full">
                 <Image 
                   src={product.imageUrl} 
                   alt={product.name} 
@@ -261,12 +262,12 @@ function ProductDetailView({
               </div>
             )}
             {product.videoUrl && (
-              <div className="aspect-video relative">
-                <video src={product.videoUrl} className="rounded-lg w-full h-full" controls />
+              <div className="relative w-full max-w-[280px] aspect-[9/16] mt-4 rounded-xl overflow-hidden border bg-black">
+                <video src={product.videoUrl} className="w-full h-full object-cover" controls loop autoPlay muted />
               </div>
             )}
             {!product.imageUrl && !product.videoUrl && (
-              <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+              <div className="aspect-video bg-muted rounded-lg flex items-center justify-center w-full">
                 <p className="text-muted-foreground">No media available</p>
               </div>
             )}
