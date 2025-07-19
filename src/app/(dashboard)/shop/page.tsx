@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -32,10 +31,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PlusCircle, Pencil, Trash2, Upload } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 const productSchema = z.object({
   id: z.number().optional(),
   name: z.string().min(1, "Product name is required."),
+  description: z.string().optional(),
   price: z.string().min(1, "Price is required."),
   inventory: z.coerce.number().min(0, "Inventory must be a positive number."),
   imageUrl: z.string().min(1, "Please upload an image."),
@@ -45,10 +46,10 @@ const productSchema = z.object({
 type Product = z.infer<typeof productSchema>;
 
 const initialProducts: Product[] = [
-  { id: 1, name: "Hand-woven Basket", price: "UGX 50,000", inventory: 15, imageUrl: "https://placehold.co/600x400.png", hint: "woven basket" },
-  { id: 2, name: "Beaded Necklace", price: "UGX 25,000", inventory: 32, imageUrl: "https://placehold.co/600x400.png", hint: "beaded necklace" },
-  { id: 3, name: "Clay Pot", price: "UGX 30,000", inventory: 20, imageUrl: "https://placehold.co/600x400.png", hint: "clay pot" },
-  { id: 4, name: "Printed Fabric", price: "UGX 40,000", inventory: 8, imageUrl: "https://placehold.co/600x400.png", hint: "african fabric" },
+  { id: 1, name: "Hand-woven Basket", description: "A beautiful and sturdy basket, hand-woven from local reeds. Perfect for shopping or home decor.", price: "UGX 50,000", inventory: 15, imageUrl: "https://placehold.co/600x400.png", hint: "woven basket" },
+  { id: 2, name: "Beaded Necklace", description: "Vibrant, multi-colored beaded necklace crafted by local artisans. A unique statement piece.", price: "UGX 25,000", inventory: 32, imageUrl: "https://placehold.co/600x400.png", hint: "beaded necklace" },
+  { id: 3, name: "Clay Pot", description: "Traditional clay pot, ideal for cooking or as a decorative item. Keeps water cool naturally.", price: "UGX 30,000", inventory: 20, imageUrl: "https://placehold.co/600x400.png", hint: "clay pot" },
+  { id: 4, name: "Printed Fabric", description: "2-meter piece of high-quality, colorful African print fabric. Great for clothing or crafts.", price: "UGX 40,000", inventory: 8, imageUrl: "https://placehold.co/600x400.png", hint: "african fabric" },
 ];
 
 function ProductForm({
@@ -68,6 +69,7 @@ function ProductForm({
     resolver: zodResolver(productSchema),
     defaultValues: product || {
       name: "",
+      description: "",
       price: "",
       inventory: 0,
       imageUrl: "",
@@ -99,6 +101,7 @@ function ProductForm({
     if (isOpen) {
       const defaultValues = product || {
         name: "",
+        description: "",
         price: "",
         inventory: 0,
         imageUrl: "",
@@ -125,6 +128,10 @@ function ProductForm({
             <Label htmlFor="name" className="text-right">Name</Label>
             <Input id="name" {...form.register("name")} className="col-span-3" />
             {form.formState.errors.name && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.name.message}</p>}
+          </div>
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="description" className="text-right pt-2">Description</Label>
+            <Textarea id="description" {...form.register("description")} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="price" className="text-right">Price</Label>
