@@ -31,8 +31,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Pencil, Trash2, Upload, Video } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, Upload, Video, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 
 const productSchema = z.object({
   id: z.number().optional(),
@@ -57,10 +58,12 @@ const initialProducts: Product[] = [
 function ProductForm({
   product,
   onSave,
+  onClose,
   children,
 }: {
   product?: Product | null;
   onSave: (data: Product) => void;
+  onClose?: () => void;
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -111,6 +114,7 @@ function ProductForm({
   const onSubmit = (data: Product) => {
     onSave(data);
     setIsOpen(false);
+    if(onClose) onClose();
     form.reset();
     setImagePreview(null);
     setVideoPreview(null);
@@ -133,9 +137,15 @@ function ProductForm({
     }
   }, [isOpen, product, form]);
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open && onClose) {
+      onClose();
+    }
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
         <DialogHeader>
@@ -223,11 +233,108 @@ function ProductForm({
   );
 }
 
+function ProductDetailView({ 
+    product, 
+    onClose, 
+    onEdit, 
+    onDelete 
+}: { 
+    product: Product; 
+    onClose: () => void; 
+    onEdit: (product: Product) => void;
+    onDelete: (productId: number) => void;
+}) {
+  return (
+    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="pr-10">
+          <DialogTitle className="text-2xl font-bold font-headline">{product.name}</DialogTitle>
+          <DialogClose asChild>
+             <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+            </button>
+          </DialogClose>
+        </DialogHeader>
+        <div className="flex-grow grid md:grid-cols-2 gap-8 overflow-y-auto pr-6 -mr-6 pl-1 -ml-1">
+          {/* Media Column */}
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-semibold text-muted-foreground">Product Image</Label>
+              <Image 
+                src={product.imageUrl} 
+                alt={product.name} 
+                width={800} 
+                height={600}
+                className="rounded-lg object-cover w-full aspect-[4/3] mt-2 border" 
+                data-ai-hint={product.hint}
+              />
+            </div>
+            {product.videoUrl && (
+              <div>
+                <Label className="text-sm font-semibold text-muted-foreground">Product Video</Label>
+                <video src={product.videoUrl} className="rounded-lg w-full mt-2 border" controls />
+              </div>
+            )}
+          </div>
+          {/* Details Column */}
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold font-headline">Description</h3>
+              <p className="text-muted-foreground mt-2 leading-relaxed">{product.description || "No description provided."}</p>
+            </div>
+            <Separator />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="text-lg font-semibold font-headline">Price</h3>
+                <p className="text-2xl font-bold text-primary mt-2">{product.price}</p>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold font-headline">Inventory</h3>
+                <p className="text-2xl font-bold mt-2">{product.inventory} units</p>
+              </div>
+            </div>
+            <Separator />
+            <div className="flex gap-4 pt-4">
+                <ProductForm product={product} onSave={onEdit} onClose={onClose}>
+                    <Button>
+                        <Pencil className="mr-2 h-4 w-4"/> Edit Product
+                    </Button>
+                </ProductForm>
+
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive">
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Product
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete this product from your shop.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => { onDelete(product.id!); onClose(); }}>Continue</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 const LOCAL_STORAGE_KEY = "simplibiz_products";
 
 export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const storedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -255,10 +362,12 @@ export default function ShopPage() {
   
   const handleEditProduct = (data: Product) => {
     setProducts(products.map(p => p.id === data.id ? data : p));
+    setSelectedProduct(data); // Update the selected product view as well
   };
 
   const handleDeleteProduct = (productId: number) => {
      setProducts(products.filter(p => p.id !== productId));
+     setSelectedProduct(null);
   };
 
   if (!isLoaded) {
@@ -280,7 +389,7 @@ export default function ShopPage() {
       </div>
       <div className="grid gap-4 md:gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {products.map((product) => (
-          <Card key={product.id} className="overflow-hidden group">
+          <Card key={product.id} className="overflow-hidden group cursor-pointer" onClick={() => setSelectedProduct(product)}>
               <CardContent className="p-0 relative">
                 <Image
                   src={product.imageUrl}
@@ -290,35 +399,8 @@ export default function ShopPage() {
                   className="aspect-[3/2] w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   data-ai-hint={product.hint}
                 />
+                 {product.videoUrl && <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5"><Video className="h-4 w-4 text-white"/></div>}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent transition-colors" />
-                 <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <ProductForm product={product} onSave={handleEditProduct}>
-                        <Button size="icon" variant="secondary" className="h-8 w-8">
-                            <Pencil className="h-4 w-4" />
-                            <span className="sr-only">Edit Product</span>
-                        </Button>
-                    </ProductForm>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                         <Button size="icon" variant="destructive" className="h-8 w-8">
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">Delete Product</span>
-                          </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                          <AlertDialogHeader>
-                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently delete this product from your shop.
-                              </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteProduct(product.id!)}>Continue</AlertDialogAction>
-                          </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                </div>
             </CardContent>
             <CardFooter className="flex items-center justify-between p-4">
                 <div>
@@ -330,6 +412,17 @@ export default function ShopPage() {
           </Card>
         ))}
       </div>
+
+       {selectedProduct && (
+        <ProductDetailView 
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+            onEdit={handleEditProduct}
+            onDelete={handleDeleteProduct}
+        />
+      )}
     </div>
   );
 }
+
+    
