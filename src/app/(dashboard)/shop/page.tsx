@@ -178,8 +178,27 @@ function ProductForm({
   );
 }
 
+const LOCAL_STORAGE_KEY = "simplibiz_products";
+
 export default function ShopPage() {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const storedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (storedProducts) {
+      setProducts(JSON.parse(storedProducts));
+    } else {
+      setProducts(initialProducts);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if(isLoaded) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
+    }
+  }, [products, isLoaded]);
 
   const handleAddProduct = (data: Product) => {
     const newProduct: Product = {
@@ -196,6 +215,10 @@ export default function ShopPage() {
   const handleDeleteProduct = (productId: number) => {
      setProducts(products.filter(p => p.id !== productId));
   };
+
+  if (!isLoaded) {
+    return null; // Or a loading spinner
+  }
 
   return (
     <div className="flex flex-col gap-6">
