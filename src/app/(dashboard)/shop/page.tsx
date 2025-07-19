@@ -157,14 +157,14 @@ function ProductForm({
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-4">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>{product ? "Edit Product" : "Add Product"}</DialogTitle>
           <DialogDescription>
             {product ? "Make changes to your product here." : "Add a new product to your shop."} Click save when you're done.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-grow overflow-y-auto px-6">
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="flex-grow overflow-y-auto">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">Name</Label>
                 <Input id="name" {...form.register("name")} className="col-span-3" />
@@ -239,7 +239,7 @@ function ProductForm({
               </div>
             </form>
         </div>
-        <DialogFooter className="p-6 pt-4 border-t bg-background sticky bottom-0">
+        <DialogFooter className="p-6 border-t bg-background">
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancel</Button>
             </DialogClose>
@@ -387,7 +387,7 @@ export default function ShopPage() {
       setProducts(JSON.parse(storedProducts).map((p: Product) => {
         // Restore placeholder images from hint, but don't restore uploaded (Base64) images
         const coverImageUrl = (p.hint && !p.coverImageUrl?.startsWith('data:')) ? `https://placehold.co/600x400.png` : p.coverImageUrl;
-        return {...p, coverImageUrl: coverImageUrl, media: [] };
+        return {...p, coverImageUrl: coverImageUrl, media: p.media || [] };
       }));
     } else {
       setProducts(initialProducts);
@@ -491,3 +491,5 @@ export default function ShopPage() {
     </div>
   );
 }
+
+    
