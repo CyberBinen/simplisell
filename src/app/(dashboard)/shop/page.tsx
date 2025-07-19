@@ -450,12 +450,17 @@ export default function ShopPage() {
 
   const handleAddProduct = async (data: Product) => {
     try {
-      // Don't save the id field, firestore will generate it.
       const { id, ...productData } = data;
-      await addDoc(collection(db, "products"), {
+      // Sanitize media array to ensure it's just plain objects
+      const sanitizedMedia = (productData.media || []).map(item => ({ type: item.type, url: item.url }));
+      
+      const dataToSave = {
         ...productData,
+        media: sanitizedMedia,
         createdAt: Timestamp.now(),
-      });
+      };
+
+      await addDoc(collection(db, "products"), dataToSave);
       toast({ title: "Success", description: "Product added successfully." });
     } catch (error) {
       console.error("Error adding product:", error);
@@ -469,11 +474,20 @@ export default function ShopPage() {
         return;
     }
     try {
-        const { id, ...productData } = data;
+        const { id, createdAt, ...productData } = data;
         const productRef = doc(db, "products", id);
-        await updateDoc(productRef, productData);
+
+        // Sanitize media array to ensure it's just plain objects
+        const sanitizedMedia = (productData.media || []).map(item => ({ type: item.type, url: item.url }));
+        
+        const dataToSave = {
+            ...productData,
+            media: sanitizedMedia,
+        };
+
+        await updateDoc(productRef, dataToSave);
         toast({ title: "Success", description: "Product updated successfully." });
-        // The real-time listener will update the state, but we can update the selected product view instantly.
+        
         setSelectedProduct(data);
     } catch (error) {
         console.error("Error updating product:", error);
@@ -556,4 +570,5 @@ export default function ShopPage() {
     </div>
   );
 }
- 
+
+    
