@@ -10,6 +10,7 @@ import {
   Settings,
   Briefcase,
   ShoppingBag,
+  Users,
 
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/shop", label: "Shop", icon: ShoppingBag },
   { href: "/finance", label: "Finance", icon: Wallet },
   { href: "/analytics", label: "Analytics", icon: BarChart },
+  { href: "/customers", label: "Customers", icon: Users },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -62,8 +64,8 @@ export function MainNav() {
       {/* Mobile Bottom Navigation */}
       <aside className="fixed inset-x-0 bottom-0 z-50 block border-t bg-background md:hidden">
         <nav>
-          <ul className="flex justify-around">
-            {navItems.map((item) => (
+          <ul className="grid grid-cols-5">
+            {navItems.filter(item => ["Dashboard", "Portfolio", "Shop", "Finance", "Customers"].includes(item.label)).map((item) => (
               <li key={item.href} className="flex-1">
                 <Link
                   href={item.href}
