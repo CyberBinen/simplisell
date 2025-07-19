@@ -266,9 +266,9 @@ function ProductDetailView({
     onDelete: (productId: number) => void;
 }) {
   const allMedia = [
-      { type: 'image' as const, url: product.coverImageUrl },
-      ...(product.media || [])
-  ];
+    ...(product.coverImageUrl ? [{ type: 'image' as const, url: product.coverImageUrl }] : []),
+    ...(product.media || [])
+  ].filter(item => item.url);
 
   return (
     <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -462,5 +462,3 @@ export default function ShopPage() {
     </div>
   );
 }
-
-    
