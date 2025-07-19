@@ -31,15 +31,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Pencil, Trash2, Upload, Video, X, ImagePlus, GripVertical } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, Upload, Video, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-
-const mediaSchema = z.object({
-  type: z.enum(['image', 'video']),
-  url: z.string(),
-});
 
 const productSchema = z.object({
   id: z.number().optional(),
@@ -47,19 +41,18 @@ const productSchema = z.object({
   description: z.string().optional(),
   price: z.string().min(1, "Price is required."),
   inventory: z.coerce.number().min(0, "Inventory must be a positive number."),
-  coverImageUrl: z.string().min(1, "Please upload a cover image."),
-  media: z.array(mediaSchema).optional(),
+  imageUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
   hint: z.string().optional(),
 });
 
 type Product = z.infer<typeof productSchema>;
-type MediaItem = z.infer<typeof mediaSchema>;
 
 const initialProducts: Product[] = [
-  { id: 1, name: "Hand-woven Basket", description: "A beautiful and sturdy basket, hand-woven from local reeds. Perfect for shopping or home decor.", price: "UGX 50,000", inventory: 15, coverImageUrl: "https://placehold.co/600x400.png", hint: "woven basket", media: [] },
-  { id: 2, name: "Beaded Necklace", description: "Vibrant, multi-colored beaded necklace crafted by local artisans. A unique statement piece.", price: "UGX 25,000", inventory: 32, coverImageUrl: "https://placehold.co/600x400.png", hint: "beaded necklace", media: [] },
-  { id: 3, name: "Clay Pot", description: "Traditional clay pot, ideal for cooking or as a decorative item. Keeps water cool naturally.", price: "UGX 30,000", inventory: 20, coverImageUrl: "https://placehold.co/600x400.png", hint: "clay pot", media: [] },
-  { id: 4, name: "Printed Fabric", description: "2-meter piece of high-quality, colorful African print fabric. Great for clothing or crafts.", price: "UGX 40,000", inventory: 8, coverImageUrl: "https://placehold.co/600x400.png", hint: "african fabric", media: [] },
+  { id: 1, name: "Hand-woven Basket", description: "A beautiful and sturdy basket, hand-woven from local reeds. Perfect for shopping or home decor.", price: "UGX 50,000", inventory: 15, imageUrl: "https://placehold.co/600x400.png", hint: "woven basket" },
+  { id: 2, name: "Beaded Necklace", description: "Vibrant, multi-colored beaded necklace crafted by local artisans. A unique statement piece.", price: "UGX 25,000", inventory: 32, imageUrl: "https://placehold.co/600x400.png", hint: "beaded necklace" },
+  { id: 3, name: "Clay Pot", description: "Traditional clay pot, ideal for cooking or as a decorative item. Keeps water cool naturally.", price: "UGX 30,000", inventory: 20, imageUrl: "https://placehold.co/600x400.png", hint: "clay pot" },
+  { id: 4, name: "Printed Fabric", description: "2-meter piece of high-quality, colorful African print fabric. Great for clothing or crafts.", price: "UGX 40,000", inventory: 8, imageUrl: "https://placehold.co/600x400.png", hint: "african fabric" },
 ];
 
 function ProductForm({
@@ -74,11 +67,11 @@ function ProductForm({
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
-  const [media, setMedia] = useState<MediaItem[]>([]);
-  const coverImageInputRef = useRef<HTMLInputElement>(null);
-  const mediaInputRef = useRef<HTMLInputElement>(null);
-  
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
   const form = useForm<Product>({
     resolver: zodResolver(productSchema),
     defaultValues: product || {
@@ -86,46 +79,32 @@ function ProductForm({
       description: "",
       price: "",
       inventory: 0,
-      coverImageUrl: "",
-      media: [],
+      imageUrl: "",
+      videoUrl: "",
       hint: "",
     },
   });
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, fileType: 'image' | 'video') => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const dataUrl = reader.result as string;
-        setMedia(prev => [...prev, { type, url: dataUrl }]);
-      };
-      reader.readAsDataURL(file);
-    }
-    // Reset file input to allow selecting the same file again
-    event.target.value = ''; 
-  };
-  
-  const handleCoverImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUrl = reader.result as string;
-        form.setValue("coverImageUrl", dataUrl);
-        setCoverImagePreview(dataUrl);
+        if (fileType === 'image') {
+          form.setValue("imageUrl", dataUrl);
+          setImagePreview(dataUrl);
+        } else {
+          form.setValue("videoUrl", dataUrl);
+          setVideoPreview(dataUrl);
+        }
       };
       reader.readAsDataURL(file);
     }
   };
-
-  const removeMedia = (index: number) => {
-    setMedia(prev => prev.filter((_, i) => i !== index));
-  }
 
   const onSubmit = (data: Product) => {
-    const finalData = { ...data, media: media };
-    onSave(finalData);
+    onSave(data);
     handleOpenChange(false);
   };
   
@@ -136,13 +115,13 @@ function ProductForm({
         description: "",
         price: "",
         inventory: 0,
-        coverImageUrl: "",
-        media: [],
+        imageUrl: "",
+        videoUrl: "",
         hint: "",
       };
       form.reset(defaultValues);
-      setCoverImagePreview(defaultValues.coverImageUrl || null);
-      setMedia(defaultValues.media || []);
+      setImagePreview(defaultValues.imageUrl || null);
+      setVideoPreview(defaultValues.videoUrl || null);
     }
   }, [isOpen, product, form]);
 
@@ -151,15 +130,15 @@ function ProductForm({
     if (!open) {
       if(onClose) onClose();
       form.reset();
-      setCoverImagePreview(null);
-      setMedia([]);
+      setImagePreview(null);
+      setVideoPreview(null);
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{product ? "Edit Product" : "Add Product"}</DialogTitle>
           <DialogDescription>
@@ -188,58 +167,48 @@ function ProductForm({
                  {form.formState.errors.inventory && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.inventory.message}</p>}
               </div>
                <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right pt-2">Cover Image</Label>
+                <Label className="text-right pt-2">Image</Label>
                 <div className="col-span-3">
                      <Input 
-                        id="coverImage" 
+                        id="imageUrl" 
                         type="file" 
                         accept="image/*"
                         className="hidden" 
-                        ref={coverImageInputRef}
-                        onChange={handleCoverImageChange}
+                        ref={imageInputRef}
+                        onChange={(e) => handleFileChange(e, 'image')}
                      />
-                    <Button type="button" variant="outline" onClick={() => coverImageInputRef.current?.click()}>
+                    <Button type="button" variant="outline" onClick={() => imageInputRef.current?.click()}>
                         <Upload className="mr-2 h-4 w-4" />
-                        Upload Cover Image
+                        Upload Image
                     </Button>
-                    {coverImagePreview && (
+                    {imagePreview && (
                         <div className="mt-2 relative w-24 h-24">
-                            <Image src={coverImagePreview} alt="Cover preview" layout="fill" className="rounded-md object-cover" />
+                            <Image src={imagePreview} alt="Image preview" layout="fill" className="rounded-md object-cover" />
                         </div>
                     )}
-                     {form.formState.errors.coverImageUrl && <p className="text-red-500 text-xs mt-1">{form.formState.errors.coverImageUrl.message}</p>}
                  </div>
               </div>
                <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right pt-2">More Media</Label>
-                <div className="col-span-3 space-y-3">
-                  <div className="flex gap-2">
-                    <Input id="media" type="file" className="hidden" ref={mediaInputRef} />
-                    <Button type="button" variant="outline" onClick={() => { mediaInputRef.current!.accept='image/*'; mediaInputRef.current!.onchange = (e) => handleFileSelect(e as any, 'image'); mediaInputRef.current?.click();}}>
-                        <ImagePlus className="mr-2 h-4 w-4" /> Add Image
+                <Label className="text-right pt-2">Video</Label>
+                <div className="col-span-3">
+                    <Input 
+                        id="videoUrl" 
+                        type="file" 
+                        accept="video/*"
+                        className="hidden" 
+                        ref={videoInputRef}
+                        onChange={(e) => handleFileChange(e, 'video')}
+                    />
+                    <Button type="button" variant="outline" onClick={() => videoInputRef.current?.click()}>
+                        <Video className="mr-2 h-4 w-4" />
+                        Upload Video
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => { mediaInputRef.current!.accept='video/*'; mediaInputRef.current!.onchange = (e) => handleFileSelect(e as any, 'video'); mediaInputRef.current?.click();}}>
-                        <Video className="mr-2 h-4 w-4" /> Add Video
-                    </Button>
-                  </div>
-                  {media.length > 0 && 
-                    <div className="grid grid-cols-3 gap-2">
-                      {media.map((item, index) => (
-                        <div key={index} className="relative group w-full aspect-square">
-                           {item.type === 'image' ? (
-                            <Image src={item.url} alt={`media-${index}`} layout="fill" className="rounded-md object-cover" />
-                          ) : (
-                            <video src={item.url} className="rounded-md w-full h-full object-cover" />
-                          )}
-                          <button type="button" onClick={() => removeMedia(index)} className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 group-hover:opacity-100 opacity-0 transition-opacity">
-                            <X className="h-3 w-3" />
-                          </button>
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 text-center rounded-b-md capitalize">{item.type}</div>
+                    {videoPreview && (
+                        <div className="mt-2 relative w-24 h-24">
+                            <video src={videoPreview} className="rounded-md object-cover w-full h-full" controls />
                         </div>
-                      ))}
-                    </div>
-                  }
-                </div>
+                    )}
+                 </div>
               </div>
             </form>
         </div>
@@ -265,17 +234,12 @@ function ProductDetailView({
     onSave: (product: Product) => void;
     onDelete: (productId: number) => void;
 }) {
-  const allMedia = [
-    ...(product.coverImageUrl ? [{ type: 'image' as const, url: product.coverImageUrl }] : []),
-    ...(product.media || [])
-  ].filter(item => item.url);
-
   return (
     <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="pr-10">
+        <DialogHeader>
           <DialogTitle className="text-2xl font-bold font-headline">{product.name}</DialogTitle>
-          <DialogClose asChild>
+           <DialogClose asChild>
              <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>
@@ -285,33 +249,27 @@ function ProductDetailView({
         <div className="flex-grow grid md:grid-cols-2 gap-8 overflow-y-auto pr-6 -mr-6 pl-1 -ml-1">
           {/* Media Column */}
           <div className="space-y-4">
-             <Carousel className="w-full">
-              <CarouselContent>
-                {allMedia.map((item, index) => (
-                  <CarouselItem key={index}>
-                    <div className="aspect-video relative">
-                      {item.type === 'image' ? (
-                        <Image 
-                          src={item.url} 
-                          alt={`${product.name} media ${index + 1}`} 
-                          layout="fill"
-                          className="rounded-lg object-contain w-full h-full" 
-                          data-ai-hint={product.hint}
-                        />
-                      ) : (
-                        <video src={item.url} className="rounded-lg w-full h-full" controls />
-                      )}
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              {allMedia.length > 1 && (
-                <>
-                  <CarouselPrevious className="left-2" />
-                  <CarouselNext className="right-2"/>
-                </>
-              )}
-            </Carousel>
+            {product.imageUrl && (
+              <div className="aspect-video relative">
+                <Image 
+                  src={product.imageUrl} 
+                  alt={product.name} 
+                  layout="fill"
+                  className="rounded-lg object-cover w-full h-full" 
+                  data-ai-hint={product.hint}
+                />
+              </div>
+            )}
+            {product.videoUrl && (
+              <div className="aspect-video relative">
+                <video src={product.videoUrl} className="rounded-lg w-full h-full" controls />
+              </div>
+            )}
+            {!product.imageUrl && !product.videoUrl && (
+              <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+                <p className="text-muted-foreground">No media available</p>
+              </div>
+            )}
           </div>
           {/* Details Column */}
           <div className="space-y-6">
@@ -427,9 +385,9 @@ export default function ShopPage() {
         {products.map((product) => (
           <Card key={product.id} className="overflow-hidden group cursor-pointer" onClick={() => setSelectedProduct(product)}>
               <CardContent className="p-0 relative">
-                {product.coverImageUrl && (
+                {product.imageUrl && (
                     <Image
-                      src={product.coverImageUrl}
+                      src={product.imageUrl}
                       alt={product.name}
                       width={600}
                       height={400}
@@ -437,7 +395,7 @@ export default function ShopPage() {
                       data-ai-hint={product.hint}
                     />
                 )}
-                 {(product.media && product.media.some(m => m.type === 'video')) && <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5"><Video className="h-4 w-4 text-white"/></div>}
+                 {product.videoUrl && <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5"><Video className="h-4 w-4 text-white"/></div>}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent transition-colors" />
             </CardContent>
             <CardFooter className="flex items-center justify-between p-4">
