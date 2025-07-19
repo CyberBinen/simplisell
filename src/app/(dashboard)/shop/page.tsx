@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -31,9 +31,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Pencil, Trash2, Upload, Video, X } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, Upload, Video, X, ImagePlus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+
+const mediaSchema = z.object({
+  type: z.enum(['image', 'video']),
+  url: z.string(),
+});
 
 const productSchema = z.object({
   id: z.number().optional(),
@@ -41,18 +46,19 @@ const productSchema = z.object({
   description: z.string().optional(),
   price: z.string().min(1, "Price is required."),
   inventory: z.coerce.number().min(0, "Inventory must be a positive number."),
-  imageUrl: z.string().optional(),
-  videoUrl: z.string().optional(),
+  coverImageUrl: z.string().optional(),
+  media: z.array(mediaSchema).optional(),
   hint: z.string().optional(),
 });
 
 type Product = z.infer<typeof productSchema>;
+type MediaItem = z.infer<typeof mediaSchema>;
 
 const initialProducts: Product[] = [
-  { id: 1, name: "Hand-woven Basket", description: "A beautiful and sturdy basket, hand-woven from local reeds. Perfect for shopping or home decor.", price: "UGX 50,000", inventory: 15, imageUrl: "https://placehold.co/600x400.png", hint: "woven basket" },
-  { id: 2, name: "Beaded Necklace", description: "Vibrant, multi-colored beaded necklace crafted by local artisans. A unique statement piece.", price: "UGX 25,000", inventory: 32, imageUrl: "https://placehold.co/600x400.png", hint: "beaded necklace" },
-  { id: 3, name: "Clay Pot", description: "Traditional clay pot, ideal for cooking or as a decorative item. Keeps water cool naturally.", price: "UGX 30,000", inventory: 20, imageUrl: "https://placehold.co/600x400.png", hint: "clay pot" },
-  { id: 4, name: "Printed Fabric", description: "2-meter piece of high-quality, colorful African print fabric. Great for clothing or crafts.", price: "UGX 40,000", inventory: 8, imageUrl: "https://placehold.co/600x400.png", hint: "african fabric" },
+  { id: 1, name: "Hand-woven Basket", description: "A beautiful and sturdy basket, hand-woven from local reeds. Perfect for shopping or home decor.", price: "UGX 50,000", inventory: 15, coverImageUrl: "https://placehold.co/600x400.png", media: [], hint: "woven basket" },
+  { id: 2, name: "Beaded Necklace", description: "Vibrant, multi-colored beaded necklace crafted by local artisans. A unique statement piece.", price: "UGX 25,000", inventory: 32, coverImageUrl: "https://placehold.co/600x400.png", media: [], hint: "beaded necklace" },
+  { id: 3, name: "Clay Pot", description: "Traditional clay pot, ideal for cooking or as a decorative item. Keeps water cool naturally.", price: "UGX 30,000", inventory: 20, coverImageUrl: "https://placehold.co/600x400.png", media: [], hint: "clay pot" },
+  { id: 4, name: "Printed Fabric", description: "2-meter piece of high-quality, colorful African print fabric. Great for clothing or crafts.", price: "UGX 40,000", inventory: 8, coverImageUrl: "https://placehold.co/600x400.png", media: [], hint: "african fabric" },
 ];
 
 function ProductForm({
@@ -67,10 +73,10 @@ function ProductForm({
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
+  const [mediaPreviews, setMediaPreviews] = useState<MediaItem[]>([]);
+  const coverImageInputRef = useRef<HTMLInputElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<Product>({
     resolver: zodResolver(productSchema),
@@ -79,28 +85,40 @@ function ProductForm({
       description: "",
       price: "",
       inventory: 0,
-      imageUrl: "",
-      videoUrl: "",
+      coverImageUrl: "",
+      media: [],
       hint: "",
     },
   });
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, fileType: 'image' | 'video') => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, fileType: 'cover' | 'additional') => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const dataUrl = reader.result as string;
-        if (fileType === 'image') {
-          form.setValue("imageUrl", dataUrl);
-          setImagePreview(dataUrl);
+        if (fileType === 'cover') {
+          form.setValue("coverImageUrl", dataUrl);
+          setCoverImagePreview(dataUrl);
         } else {
-          form.setValue("videoUrl", dataUrl);
-          setVideoPreview(dataUrl);
+            const newMediaItem: MediaItem = {
+                type: file.type.startsWith('video') ? 'video' : 'image',
+                url: dataUrl
+            };
+            const currentMedia = form.getValues('media') || [];
+            form.setValue('media', [...currentMedia, newMediaItem]);
+            setMediaPreviews(prev => [...prev, newMediaItem]);
         }
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const removeMediaItem = (index: number) => {
+    const currentMedia = form.getValues('media') || [];
+    const updatedMedia = currentMedia.filter((_, i) => i !== index);
+    form.setValue('media', updatedMedia);
+    setMediaPreviews(updatedMedia);
   };
 
   const onSubmit = (data: Product) => {
@@ -115,13 +133,13 @@ function ProductForm({
         description: "",
         price: "",
         inventory: 0,
-        imageUrl: "",
-        videoUrl: "",
+        coverImageUrl: "",
+        media: [],
         hint: "",
       };
       form.reset(defaultValues);
-      setImagePreview(defaultValues.imageUrl || null);
-      setVideoPreview(defaultValues.videoUrl || null);
+      setCoverImagePreview(defaultValues.coverImageUrl || null);
+      setMediaPreviews(defaultValues.media || []);
     }
   }, [isOpen, product, form]);
 
@@ -130,8 +148,8 @@ function ProductForm({
     if (!open) {
       if(onClose) onClose();
       form.reset();
-      setImagePreview(null);
-      setVideoPreview(null);
+      setCoverImagePreview(null);
+      setMediaPreviews([]);
     }
   };
 
@@ -167,47 +185,56 @@ function ProductForm({
                  {form.formState.errors.inventory && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.inventory.message}</p>}
               </div>
                <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right pt-2">Image</Label>
+                <Label className="text-right pt-2">Cover Image</Label>
                 <div className="col-span-3">
                      <Input 
-                        id="imageUrl" 
+                        id="coverImageUrl" 
                         type="file" 
                         accept="image/*"
                         className="hidden" 
-                        ref={imageInputRef}
-                        onChange={(e) => handleFileChange(e, 'image')}
+                        ref={coverImageInputRef}
+                        onChange={(e) => handleFileChange(e, 'cover')}
                      />
-                    <Button type="button" variant="outline" onClick={() => imageInputRef.current?.click()}>
+                    <Button type="button" variant="outline" onClick={() => coverImageInputRef.current?.click()}>
                         <Upload className="mr-2 h-4 w-4" />
-                        Upload Image
+                        Upload Cover Image
                     </Button>
-                    {imagePreview && (
+                    {coverImagePreview && (
                         <div className="mt-2 relative w-24 h-24">
-                            <Image src={imagePreview} alt="Image preview" layout="fill" className="rounded-md object-cover" />
+                            <Image src={coverImagePreview} alt="Image preview" layout="fill" className="rounded-md object-cover" />
                         </div>
                     )}
                  </div>
               </div>
                <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right pt-2">Video</Label>
-                <div className="col-span-3">
+                <Label className="text-right pt-2">More Media</Label>
+                 <div className="col-span-3">
                     <Input 
-                        id="videoUrl" 
+                        id="media" 
                         type="file" 
-                        accept="video/*"
+                        accept="image/*,video/*"
                         className="hidden" 
-                        ref={videoInputRef}
-                        onChange={(e) => handleFileChange(e, 'video')}
+                        ref={mediaInputRef}
+                        onChange={(e) => handleFileChange(e, 'additional')}
                     />
-                    <Button type="button" variant="outline" onClick={() => videoInputRef.current?.click()}>
-                        <Video className="mr-2 h-4 w-4" />
-                        Upload Video
+                    <Button type="button" variant="outline" onClick={() => mediaInputRef.current?.click()}>
+                        <ImagePlus className="mr-2 h-4 w-4" />
+                        Add Image or Video
                     </Button>
-                    {videoPreview && (
-                        <div className="mt-2 relative w-24 h-24">
-                            <video src={videoPreview} className="rounded-md object-cover w-full h-full" controls />
-                        </div>
-                    )}
+                     <div className="mt-2 flex flex-wrap gap-2">
+                        {mediaPreviews.map((media, index) => (
+                            <div key={index} className="relative w-24 h-24">
+                                {media.type === 'image' ? (
+                                    <Image src={media.url} alt="Media preview" layout="fill" className="rounded-md object-cover" />
+                                ) : (
+                                    <video src={media.url} className="rounded-md object-cover w-full h-full" muted />
+                                )}
+                                <button type="button" onClick={() => removeMediaItem(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                  </div>
               </div>
             </form>
@@ -246,77 +273,101 @@ function ProductDetailView({
             </button>
           </DialogClose>
         </DialogHeader>
-        <div className="flex-grow grid md:grid-cols-2 gap-8 overflow-y-auto pr-6 -mr-6 pl-1 -ml-1">
-          {/* Media Column */}
-          <div className="space-y-4">
-            {product.imageUrl && (
-              <div className="aspect-video relative w-full">
-                <Image 
-                  src={product.imageUrl} 
-                  alt={product.name} 
-                  layout="fill"
-                  className="rounded-lg object-cover w-full h-full" 
-                  data-ai-hint={product.hint}
-                />
-              </div>
-            )}
-            {product.videoUrl && (
-              <div className="relative w-full aspect-video mt-4">
-                <video src={product.videoUrl} className="rounded-lg object-cover w-full h-full" controls loop autoPlay muted />
-              </div>
-            )}
-            {!product.imageUrl && !product.videoUrl && (
-              <div className="aspect-video bg-muted rounded-lg flex items-center justify-center w-full">
-                <p className="text-muted-foreground">No media available</p>
-              </div>
-            )}
-          </div>
-          {/* Details Column */}
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold font-headline">Description</h3>
-              <p className="text-muted-foreground mt-2 leading-relaxed">{product.description || "No description provided."}</p>
-            </div>
-            <Separator />
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-lg font-semibold font-headline">Price</h3>
-                <p className="text-2xl font-bold text-primary mt-2">{product.price}</p>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold font-headline">Inventory</h3>
-                <p className="text-2xl font-bold mt-2">{product.inventory} units</p>
-              </div>
-            </div>
-            <Separator />
-            <div className="flex gap-4 pt-4">
-                <ProductForm product={product} onSave={onSave} onClose={onClose}>
-                    <Button>
-                        <Pencil className="mr-2 h-4 w-4"/> Edit Product
-                    </Button>
-                </ProductForm>
+        <div className="flex-grow overflow-y-auto pr-6 -mr-6 pl-1 -ml-1 space-y-8">
+            <div className="grid md:grid-cols-2 gap-8">
+                {/* Media Column */}
+                <div className="space-y-4">
+                    {product.coverImageUrl ? (
+                    <div className="aspect-video relative w-full">
+                        <Image 
+                        src={product.coverImageUrl} 
+                        alt={product.name} 
+                        layout="fill"
+                        className="rounded-lg object-cover w-full h-full" 
+                        data-ai-hint={product.hint}
+                        />
+                    </div>
+                    ) : (
+                    <div className="aspect-video bg-muted rounded-lg flex items-center justify-center w-full">
+                        <p className="text-muted-foreground">No cover image</p>
+                    </div>
+                    )}
+                </div>
+                {/* Details Column */}
+                <div className="space-y-6">
+                    <div>
+                    <h3 className="text-lg font-semibold font-headline">Description</h3>
+                    <p className="text-muted-foreground mt-2 leading-relaxed">{product.description || "No description provided."}</p>
+                    </div>
+                    <Separator />
+                    <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <h3 className="text-lg font-semibold font-headline">Price</h3>
+                        <p className="text-2xl font-bold text-primary mt-2">{product.price}</p>
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold font-headline">Inventory</h3>
+                        <p className="text-2xl font-bold mt-2">{product.inventory} units</p>
+                    </div>
+                    </div>
+                    <Separator />
+                    <div className="flex gap-4 pt-4">
+                        <ProductForm product={product} onSave={onSave} onClose={onClose}>
+                            <Button>
+                                <Pencil className="mr-2 h-4 w-4"/> Edit Product
+                            </Button>
+                        </ProductForm>
 
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive">
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete Product
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete this product from your shop.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => { onDelete(product.id!); onClose(); }}>Continue</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Product
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete this product from your shop.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => { onDelete(product.id!); onClose(); }}>Continue</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </div>
             </div>
-          </div>
+
+            {(product.media && product.media.length > 0) && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="font-headline text-xl">Additional Media</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-wrap gap-4">
+                        {product.media.map((item, index) => (
+                            <div key={index} className="w-40 h-40 relative rounded-lg overflow-hidden">
+                                {item.type === 'image' ? (
+                                    <Image
+                                        src={item.url}
+                                        alt={`${product.name} media ${index + 1}`}
+                                        layout="fill"
+                                        className="object-cover"
+                                    />
+                                ) : (
+                                    <video
+                                        src={item.url}
+                                        className="w-full h-full object-cover"
+                                        controls
+                                    />
+                                )}
+                            </div>
+                        ))}
+                    </CardContent>
+                 </Card>
+            )}
         </div>
       </DialogContent>
     </Dialog>
@@ -385,17 +436,21 @@ export default function ShopPage() {
         {products.map((product) => (
           <Card key={product.id} className="overflow-hidden group cursor-pointer" onClick={() => setSelectedProduct(product)}>
               <CardContent className="p-0 relative">
-                {product.imageUrl && (
+                {product.coverImageUrl ? (
                     <Image
-                      src={product.imageUrl}
+                      src={product.coverImageUrl}
                       alt={product.name}
                       width={600}
                       height={400}
                       className="aspect-[3/2] w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       data-ai-hint={product.hint}
                     />
+                ) : (
+                    <div className="aspect-[3/2] w-full bg-muted flex items-center justify-center">
+                        <ShoppingBag className="h-12 w-12 text-muted-foreground" />
+                    </div>
                 )}
-                 {product.videoUrl && <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5"><Video className="h-4 w-4 text-white"/></div>}
+                 {(product.media && product.media.some(m => m.type === 'video')) && <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5"><Video className="h-4 w-4 text-white"/></div>}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent transition-colors" />
             </CardContent>
             <CardFooter className="flex items-center justify-between p-4">
@@ -420,3 +475,5 @@ export default function ShopPage() {
     </div>
   );
 }
+
+    
