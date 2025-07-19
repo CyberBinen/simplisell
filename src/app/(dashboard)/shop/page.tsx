@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Pencil, Trash2, Upload } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, Upload, Video } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 const productSchema = z.object({
@@ -40,16 +40,17 @@ const productSchema = z.object({
   price: z.string().min(1, "Price is required."),
   inventory: z.coerce.number().min(0, "Inventory must be a positive number."),
   imageUrl: z.string().min(1, "Please upload an image."),
+  videoUrl: z.string().optional(),
   hint: z.string().optional(),
 });
 
 type Product = z.infer<typeof productSchema>;
 
 const initialProducts: Product[] = [
-  { id: 1, name: "Hand-woven Basket", description: "A beautiful and sturdy basket, hand-woven from local reeds. Perfect for shopping or home decor.", price: "UGX 50,000", inventory: 15, imageUrl: "https://placehold.co/600x400.png", hint: "woven basket" },
-  { id: 2, name: "Beaded Necklace", description: "Vibrant, multi-colored beaded necklace crafted by local artisans. A unique statement piece.", price: "UGX 25,000", inventory: 32, imageUrl: "https://placehold.co/600x400.png", hint: "beaded necklace" },
-  { id: 3, name: "Clay Pot", description: "Traditional clay pot, ideal for cooking or as a decorative item. Keeps water cool naturally.", price: "UGX 30,000", inventory: 20, imageUrl: "https://placehold.co/600x400.png", hint: "clay pot" },
-  { id: 4, name: "Printed Fabric", description: "2-meter piece of high-quality, colorful African print fabric. Great for clothing or crafts.", price: "UGX 40,000", inventory: 8, imageUrl: "https://placehold.co/600x400.png", hint: "african fabric" },
+  { id: 1, name: "Hand-woven Basket", description: "A beautiful and sturdy basket, hand-woven from local reeds. Perfect for shopping or home decor.", price: "UGX 50,000", inventory: 15, imageUrl: "https://placehold.co/600x400.png", hint: "woven basket", videoUrl: "" },
+  { id: 2, name: "Beaded Necklace", description: "Vibrant, multi-colored beaded necklace crafted by local artisans. A unique statement piece.", price: "UGX 25,000", inventory: 32, imageUrl: "https://placehold.co/600x400.png", hint: "beaded necklace", videoUrl: "" },
+  { id: 3, name: "Clay Pot", description: "Traditional clay pot, ideal for cooking or as a decorative item. Keeps water cool naturally.", price: "UGX 30,000", inventory: 20, imageUrl: "https://placehold.co/600x400.png", hint: "clay pot", videoUrl: "" },
+  { id: 4, name: "Printed Fabric", description: "2-meter piece of high-quality, colorful African print fabric. Great for clothing or crafts.", price: "UGX 40,000", inventory: 8, imageUrl: "https://placehold.co/600x400.png", hint: "african fabric", videoUrl: "" },
 ];
 
 function ProductForm({
@@ -63,7 +64,9 @@ function ProductForm({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<Product>({
     resolver: zodResolver(productSchema),
@@ -73,6 +76,7 @@ function ProductForm({
       price: "",
       inventory: 0,
       imageUrl: "",
+      videoUrl: "",
       hint: "",
     },
   });
@@ -90,11 +94,25 @@ function ProductForm({
     }
   };
 
+  const handleVideoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        form.setValue("videoUrl", dataUrl);
+        setVideoPreview(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const onSubmit = (data: Product) => {
     onSave(data);
     setIsOpen(false);
     form.reset();
     setImagePreview(null);
+    setVideoPreview(null);
   };
   
   useEffect(() => {
@@ -105,10 +123,12 @@ function ProductForm({
         price: "",
         inventory: 0,
         imageUrl: "",
+        videoUrl: "",
         hint: "",
       };
       form.reset(defaultValues);
       setImagePreview(defaultValues.imageUrl || null);
+      setVideoPreview(defaultValues.videoUrl || null);
     }
   }, [isOpen, product, form]);
 
@@ -151,10 +171,10 @@ function ProductForm({
                     type="file" 
                     accept="image/*"
                     className="hidden" 
-                    ref={fileInputRef}
+                    ref={imageInputRef}
                     onChange={handleImageChange}
                  />
-                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                <Button type="button" variant="outline" onClick={() => imageInputRef.current?.click()}>
                     <Upload className="mr-2 h-4 w-4" />
                     Upload Image
                 </Button>
@@ -164,6 +184,28 @@ function ProductForm({
                     </div>
                 )}
                  {form.formState.errors.imageUrl && <p className="text-red-500 text-xs mt-1">{form.formState.errors.imageUrl.message}</p>}
+             </div>
+          </div>
+           <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-2">Video</Label>
+            <div className="col-span-3">
+                 <Input 
+                    id="video" 
+                    type="file" 
+                    accept="video/*"
+                    className="hidden" 
+                    ref={videoInputRef}
+                    onChange={handleVideoChange}
+                 />
+                <Button type="button" variant="outline" onClick={() => videoInputRef.current?.click()}>
+                    <Video className="mr-2 h-4 w-4" />
+                    Upload Video
+                </Button>
+                {videoPreview && (
+                    <div className="mt-2">
+                        <video src={videoPreview} width="200" className="rounded-md" controls />
+                    </div>
+                )}
              </div>
           </div>
           <DialogFooter>
