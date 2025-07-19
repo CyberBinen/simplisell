@@ -277,7 +277,7 @@ function ProductDetailView({
             <div className="grid md:grid-cols-2 gap-8">
                 {/* Media Column */}
                 <div className="space-y-4">
-                    {product.coverImageUrl && product.coverImageUrl.startsWith('https') ? (
+                    {product.coverImageUrl ? (
                     <div className="aspect-video relative w-full">
                         <Image 
                         src={product.coverImageUrl} 
@@ -384,7 +384,11 @@ export default function ShopPage() {
   useEffect(() => {
     const storedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (storedProducts) {
-      setProducts(JSON.parse(storedProducts).map((p: Product) => ({...p, coverImageUrl: p.hint ? `https://placehold.co/600x400.png` : undefined, media: [] })));
+      setProducts(JSON.parse(storedProducts).map((p: Product) => {
+        // Restore placeholder images from hint, but don't restore uploaded (Base64) images
+        const coverImageUrl = (p.hint && !p.coverImageUrl?.startsWith('data:')) ? `https://placehold.co/600x400.png` : p.coverImageUrl;
+        return {...p, coverImageUrl: coverImageUrl, media: [] };
+      }));
     } else {
       setProducts(initialProducts);
     }
@@ -396,8 +400,14 @@ export default function ShopPage() {
       // Create a version of products without the large Base64 data to avoid quota errors.
       const productsToStore = products.map(p => {
         const { coverImageUrl, media, ...remaningProductData } = p;
-        // We only store the metadata, not the heavy media files.
-        return remaningProductData;
+        // We only store the metadata and placeholder hints, not the heavy media files.
+        const productForStorage: Partial<Product> = { ...remaningProductData };
+
+        if(coverImageUrl && coverImageUrl.startsWith('https')) {
+          productForStorage.coverImageUrl = coverImageUrl;
+        }
+
+        return productForStorage;
       });
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(productsToStore));
     }
