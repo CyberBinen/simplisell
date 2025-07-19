@@ -34,6 +34,9 @@ import { Label } from "@/components/ui/label";
 import { PlusCircle, Pencil, Trash2, Upload, Video, X, ImagePlus, ShoppingBag } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, Timestamp } from "firebase/firestore";
+import { useToast } from "@/components/ui/use-toast";
 
 const mediaSchema = z.object({
   type: z.enum(['image', 'video']),
@@ -41,7 +44,7 @@ const mediaSchema = z.object({
 });
 
 const productSchema = z.object({
-  id: z.number().optional(),
+  id: z.string().optional(),
   name: z.string().min(1, "Product name is required."),
   description: z.string().optional(),
   price: z.string().min(1, "Price is required."),
@@ -49,17 +52,11 @@ const productSchema = z.object({
   coverImageUrl: z.string().optional(),
   media: z.array(mediaSchema).optional(),
   hint: z.string().optional(),
+  createdAt: z.any().optional(),
 });
 
 type Product = z.infer<typeof productSchema>;
 type MediaItem = z.infer<typeof mediaSchema>;
-
-const initialProducts: Product[] = [
-  { id: 1, name: "Hand-woven Basket", description: "A beautiful and sturdy basket, hand-woven from local reeds. Perfect for shopping or home decor.", price: "UGX 50,000", inventory: 15, coverImageUrl: "https://placehold.co/600x400.png", media: [], hint: "woven basket" },
-  { id: 2, name: "Beaded Necklace", description: "Vibrant, multi-colored beaded necklace crafted by local artisans. A unique statement piece.", price: "UGX 25,000", inventory: 32, coverImageUrl: "https://placehold.co/600x400.png", media: [], hint: "beaded necklace" },
-  { id: 3, name: "Clay Pot", description: "Traditional clay pot, ideal for cooking or as a decorative item. Keeps water cool naturally.", price: "UGX 30,000", inventory: 20, coverImageUrl: "https://placehold.co/600x400.png", media: [], hint: "clay pot" },
-  { id: 4, name: "Printed Fabric", description: "2-meter piece of high-quality, colorful African print fabric. Great for clothing or crafts.", price: "UGX 40,000", inventory: 8, coverImageUrl: "https://placehold.co/600x400.png", media: [], hint: "african fabric" },
-];
 
 function ProductForm({
   product,
@@ -164,7 +161,7 @@ function ProductForm({
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto">
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-6 py-4">
+          <form className="space-y-4 px-6 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">Name</Label>
                 <Input id="name" {...form.register("name")} className="col-span-3" />
@@ -259,7 +256,7 @@ function ProductDetailView({
     product: Product; 
     onClose: () => void; 
     onSave: (product: Product) => void;
-    onDelete: (productId: number) => void;
+    onDelete: (productId: string) => void;
 }) {
   return (
     <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -374,65 +371,80 @@ function ProductDetailView({
   )
 }
 
-const LOCAL_STORAGE_KEY = "simplibiz_products";
-
 export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const storedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (storedProducts) {
-      setProducts(JSON.parse(storedProducts).map((p: Product) => {
-        // Restore placeholder images from hint, but don't restore uploaded (Base64) images
-        const coverImageUrl = (p.hint && !p.coverImageUrl?.startsWith('data:')) ? `https://placehold.co/600x400.png` : p.coverImageUrl;
-        return {...p, coverImageUrl: coverImageUrl, media: p.media || [] };
-      }));
-    } else {
-      setProducts(initialProducts);
-    }
-    setIsLoaded(true);
+    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const productsData: Product[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        productsData.push({ 
+            ...data, 
+            id: doc.id,
+            media: data.media || [] // ensure media is always an array
+        } as Product);
+      });
+      setProducts(productsData);
+      setIsLoaded(true);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if(isLoaded) {
-      // Create a version of products without the large Base64 data to avoid quota errors.
-      const productsToStore = products.map(p => {
-        const { coverImageUrl, media, ...remaningProductData } = p;
-        // We only store the metadata and placeholder hints, not the heavy media files.
-        const productForStorage: Partial<Product> = { ...remaningProductData };
-
-        if(coverImageUrl && coverImageUrl.startsWith('https')) {
-          productForStorage.coverImageUrl = coverImageUrl;
-        }
-
-        return productForStorage;
+  const handleAddProduct = async (data: Product) => {
+    try {
+      // Don't save the id field, firestore will generate it.
+      const { id, ...productData } = data;
+      await addDoc(collection(db, "products"), {
+        ...productData,
+        createdAt: Timestamp.now(),
       });
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(productsToStore));
+      toast({ title: "Success", description: "Product added successfully." });
+    } catch (error) {
+      console.error("Error adding product:", error);
+      toast({ title: "Error", description: "Failed to add product.", variant: "destructive" });
     }
-  }, [products, isLoaded]);
-
-  const handleAddProduct = (data: Product) => {
-    const newProduct: Product = {
-      ...data,
-      id: Math.max(0, ...products.map(p => p.id || 0)) + 1,
-    };
-    setProducts([newProduct, ...products]);
   };
   
-  const handleEditProduct = (data: Product) => {
-    setProducts(products.map(p => p.id === data.id ? data : p));
-    setSelectedProduct(data); // Update the selected product view as well
+  const handleEditProduct = async (data: Product) => {
+    if (!data.id) {
+        toast({ title: "Error", description: "Product ID is missing.", variant: "destructive" });
+        return;
+    }
+    try {
+        const { id, ...productData } = data;
+        const productRef = doc(db, "products", id);
+        await updateDoc(productRef, productData);
+        toast({ title: "Success", description: "Product updated successfully." });
+        setSelectedProduct(data); // Update the selected product view as well
+    } catch (error) {
+        console.error("Error updating product:", error);
+        toast({ title: "Error", description: "Failed to update product.", variant: "destructive" });
+    }
   };
 
-  const handleDeleteProduct = (productId: number) => {
-     setProducts(products.filter(p => p.id !== productId));
-     setSelectedProduct(null);
+  const handleDeleteProduct = async (productId: string) => {
+     try {
+        await deleteDoc(doc(db, "products", productId));
+        toast({ title: "Success", description: "Product deleted successfully." });
+        setSelectedProduct(null);
+     } catch (error) {
+        console.error("Error deleting product:", error);
+        toast({ title: "Error", description: "Failed to delete product.", variant: "destructive" });
+     }
   };
 
   if (!isLoaded) {
-    return null; // Or a loading spinner
+    return (
+        <div className="flex justify-center items-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
   }
 
   return (
@@ -491,5 +503,3 @@ export default function ShopPage() {
     </div>
   );
 }
-
-    
