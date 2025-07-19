@@ -239,7 +239,7 @@ function ProductForm({
               </div>
             </form>
         </div>
-        <DialogFooter className="p-6 pt-4 border-t bg-background">
+        <DialogFooter className="p-6 pt-4 border-t bg-background sticky bottom-0">
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancel</Button>
             </DialogClose>
@@ -277,7 +277,7 @@ function ProductDetailView({
             <div className="grid md:grid-cols-2 gap-8">
                 {/* Media Column */}
                 <div className="space-y-4">
-                    {product.coverImageUrl ? (
+                    {product.coverImageUrl && product.coverImageUrl.startsWith('https') ? (
                     <div className="aspect-video relative w-full">
                         <Image 
                         src={product.coverImageUrl} 
@@ -333,7 +333,7 @@ function ProductDetailView({
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => { onDelete(product.id!); onClose(); }}>Continue</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => { if(product.id) onDelete(product.id); onClose(); }}>Continue</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
@@ -384,7 +384,7 @@ export default function ShopPage() {
   useEffect(() => {
     const storedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (storedProducts) {
-      setProducts(JSON.parse(storedProducts));
+      setProducts(JSON.parse(storedProducts).map((p: Product) => ({...p, coverImageUrl: p.hint ? `https://placehold.co/600x400.png` : undefined, media: [] })));
     } else {
       setProducts(initialProducts);
     }
@@ -393,7 +393,13 @@ export default function ShopPage() {
 
   useEffect(() => {
     if(isLoaded) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
+      // Create a version of products without the large Base64 data to avoid quota errors.
+      const productsToStore = products.map(p => {
+        const { coverImageUrl, media, ...remaningProductData } = p;
+        // We only store the metadata, not the heavy media files.
+        return remaningProductData;
+      });
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(productsToStore));
     }
   }, [products, isLoaded]);
 
