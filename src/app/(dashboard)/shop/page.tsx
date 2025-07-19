@@ -2,7 +2,7 @@
 "use client";
 
 import Image from "next/image";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,14 +31,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Pencil, Trash2 } from "lucide-react";
+import { PlusCircle, Pencil, Trash2, Upload } from "lucide-react";
 
 const productSchema = z.object({
   id: z.number().optional(),
   name: z.string().min(1, "Product name is required."),
   price: z.string().min(1, "Price is required."),
   inventory: z.coerce.number().min(0, "Inventory must be a positive number."),
-  imageUrl: z.string().url("Please enter a valid image URL."),
+  imageUrl: z.string().min(1, "Please upload an image."),
   hint: z.string().optional(),
 });
 
@@ -61,33 +61,51 @@ function ProductForm({
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const form = useForm<Product>({
     resolver: zodResolver(productSchema),
     defaultValues: product || {
       name: "",
       price: "",
       inventory: 0,
-      imageUrl: "https://placehold.co/600x400.png",
+      imageUrl: "",
       hint: "",
     },
   });
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        form.setValue("imageUrl", dataUrl);
+        setImagePreview(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const onSubmit = (data: Product) => {
     onSave(data);
     setIsOpen(false);
     form.reset();
+    setImagePreview(null);
   };
   
-  // When the dialog opens, reset the form with the product's data
   useEffect(() => {
     if (isOpen) {
-      form.reset(product || {
+      const defaultValues = product || {
         name: "",
         price: "",
         inventory: 0,
-        imageUrl: "https://placehold.co/600x400.png",
+        imageUrl: "",
         hint: "",
-      });
+      };
+      form.reset(defaultValues);
+      setImagePreview(defaultValues.imageUrl || null);
     }
   }, [isOpen, product, form]);
 
@@ -118,10 +136,28 @@ function ProductForm({
             <Input id="inventory" type="number" {...form.register("inventory")} className="col-span-3" />
              {form.formState.errors.inventory && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.inventory.message}</p>}
           </div>
-           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
-            <Input id="imageUrl" {...form.register("imageUrl")} className="col-span-3" />
-            {form.formState.errors.imageUrl && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.imageUrl.message}</p>}
+           <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-2">Image</Label>
+            <div className="col-span-3">
+                 <Input 
+                    id="image" 
+                    type="file" 
+                    accept="image/*"
+                    className="hidden" 
+                    ref={fileInputRef}
+                    onChange={handleImageChange}
+                 />
+                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload Image
+                </Button>
+                {imagePreview && (
+                    <div className="mt-2">
+                        <Image src={imagePreview} alt="Product preview" width={100} height={100} className="rounded-md object-cover aspect-square" />
+                    </div>
+                )}
+                 {form.formState.errors.imageUrl && <p className="text-red-500 text-xs mt-1">{form.formState.errors.imageUrl.message}</p>}
+             </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
