@@ -427,14 +427,16 @@ export default function ShopPage() {
         {products.map((product) => (
           <Card key={product.id} className="overflow-hidden group cursor-pointer" onClick={() => setSelectedProduct(product)}>
               <CardContent className="p-0 relative">
-                <Image
-                  src={product.coverImageUrl}
-                  alt={product.name}
-                  width={600}
-                  height={400}
-                  className="aspect-[3/2] w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  data-ai-hint={product.hint}
-                />
+                {product.coverImageUrl && (
+                    <Image
+                      src={product.coverImageUrl}
+                      alt={product.name}
+                      width={600}
+                      height={400}
+                      className="aspect-[3/2] w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      data-ai-hint={product.hint}
+                    />
+                )}
                  {(product.media && product.media.some(m => m.type === 'video')) && <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1.5"><Video className="h-4 w-4 text-white"/></div>}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent transition-colors" />
             </CardContent>
@@ -460,3 +462,5 @@ export default function ShopPage() {
     </div>
   );
 }
+
+    
